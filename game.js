@@ -4,6 +4,9 @@
 class AdventureEngine {
     constructor() {
         this.screenCanvas = document.getElementById('gameCanvas');
+        if (!this.screenCanvas) {
+            throw new Error('Canvas element with id "gameCanvas" not found');
+        }
         this.brush = this.screenCanvas.getContext('2d');
         this.displayWidth = 960;
         this.displayHeight = 640;
@@ -110,7 +113,8 @@ class AdventureEngine {
             dashCooldown: 0,
             lifePoints: 100,
             animationPhase: 0,
-            facingRight: true
+            facingRight: true,
+            invulnerableTime: 0
         };
     }
     
@@ -213,16 +217,19 @@ class AdventureEngine {
         }
         
         // Dash ability
-        if (this.pressedButtons.has('ShiftLeft') && hero.dashEnergy >= 50 && hero.dashCooldown <= 0) {
+        if ((this.pressedButtons.has('ShiftLeft') || this.pressedButtons.has('ShiftRight')) && hero.dashEnergy >= 50 && hero.dashCooldown <= 0) {
             const dashDir = hero.facingRight ? 1 : -1;
             hero.velocityX += dashForce * dashDir;
             hero.dashEnergy -= 50;
-            hero.dashCooldown = 60;
+            hero.dashCooldown = 1.0;
         }
         
-        // Regenerate dash
-        hero.dashEnergy = Math.min(100, hero.dashEnergy + 0.5);
-        hero.dashCooldown = Math.max(0, hero.dashCooldown - 1);
+        // Regenerate dash (frame-rate independent)
+        hero.dashEnergy = Math.min(100, hero.dashEnergy + 30 * dt);
+        hero.dashCooldown = Math.max(0, hero.dashCooldown - dt);
+        
+        // Update invulnerability
+        hero.invulnerableTime = Math.max(0, hero.invulnerableTime - dt);
         
         hero.animationPhase += Math.abs(hero.velocityX) * 0.01;
     }
@@ -336,9 +343,10 @@ class AdventureEngine {
                     enemy.active = false;
                     hero.velocityY = -300;
                     this.playerPoints += 50;
-                } else {
-                    // Take damage
-                    hero.lifePoints -= 1;
+                } else if (hero.invulnerableTime <= 0) {
+                    // Take damage with invulnerability frames
+                    hero.lifePoints -= 10;
+                    hero.invulnerableTime = 1.5; // 1.5 seconds of invulnerability
                     // Knockback
                     const knockbackDir = hero.xPos < enemy.xPos ? -1 : 1;
                     hero.velocityX = knockbackDir * 200;
@@ -531,6 +539,11 @@ class AdventureEngine {
         const w = hero.boxWidth;
         const h = hero.boxHeight;
         
+        // Flash effect during invulnerability
+        if (hero.invulnerableTime > 0 && Math.floor(hero.invulnerableTime * 10) % 2 === 0) {
+            ctx.globalAlpha = 0.5;
+        }
+        
         // Character body (pixel art style)
         ctx.fillStyle = '#3498db';
         ctx.fillRect(x + 4, y + 8, w - 8, h - 12);
@@ -553,6 +566,9 @@ class AdventureEngine {
         ctx.fillStyle = '#2c3e50';
         ctx.fillRect(x + 8, y + h - 6, 4, 6 + Math.abs(legPhase));
         ctx.fillRect(x + w - 12, y + h - 6, 4, 6 - Math.abs(legPhase));
+        
+        // Reset alpha
+        ctx.globalAlpha = 1.0;
         
         // Dash effect
         if (hero.dashCooldown > 0) {
@@ -603,6 +619,7 @@ class AdventureEngine {
         this.heroEntity.velocityY = 0;
         this.heroEntity.lifePoints = 100;
         this.heroEntity.dashEnergy = 100;
+        this.heroEntity.invulnerableTime = 0;
         this.playerPoints = 0;
         this.cameraOffsetX = 0;
         this.cameraOffsetY = 0;
