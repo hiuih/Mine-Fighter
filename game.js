@@ -8,8 +8,8 @@ class AdventureEngine {
             throw new Error('Canvas element with id "gameCanvas" not found');
         }
         this.brush = this.screenCanvas.getContext('2d');
-        this.displayWidth = 960;
-        this.displayHeight = 640;
+        this.displayWidth = 1280;
+        this.displayHeight = 720;
         this.screenCanvas.width = this.displayWidth;
         this.screenCanvas.height = this.displayHeight;
         
@@ -18,6 +18,7 @@ class AdventureEngine {
         this.worldTiles = [];
         this.hostileEntities = [];
         this.collectibleItems = [];
+        this.projectiles = [];
         this.currentTick = 0;
         this.playerPoints = 0;
         this.cameraOffsetX = 0;
@@ -51,13 +52,13 @@ class AdventureEngine {
     constructGameWorld() {
         const tileSize = 32;
         
-        // Create ground level with terraria-style variation
-        for (let col = 0; col < 60; col++) {
-            const baseHeight = 18;
-            const variation = Math.sin(col * 0.3) * 2;
+        // Create ground level with terraria-style variation - much bigger map
+        for (let col = 0; col < 150; col++) {
+            const baseHeight = 20;
+            const variation = Math.sin(col * 0.3) * 2 + Math.cos(col * 0.15) * 1.5;
             const groundLevel = Math.floor(baseHeight + variation);
             
-            for (let row = groundLevel; row < 20; row++) {
+            for (let row = groundLevel; row < 23; row++) {
                 this.worldTiles.push({
                     gridX: col,
                     gridY: row,
@@ -67,14 +68,22 @@ class AdventureEngine {
             }
         }
         
-        // Add floating platforms with unique patterns
+        // Add floating platforms with unique patterns - more platforms for bigger map
         const platformConfigs = [
-            {startX: 8, y: 14, length: 4},
-            {startX: 15, y: 12, length: 5},
-            {startX: 23, y: 10, length: 3},
-            {startX: 30, y: 13, length: 6},
-            {startX: 40, y: 11, length: 4},
-            {startX: 48, y: 9, length: 5}
+            {startX: 8, y: 16, length: 4},
+            {startX: 15, y: 14, length: 5},
+            {startX: 23, y: 12, length: 3},
+            {startX: 30, y: 15, length: 6},
+            {startX: 40, y: 13, length: 4},
+            {startX: 48, y: 11, length: 5},
+            {startX: 58, y: 14, length: 6},
+            {startX: 70, y: 12, length: 4},
+            {startX: 80, y: 10, length: 5},
+            {startX: 92, y: 13, length: 7},
+            {startX: 105, y: 11, length: 5},
+            {startX: 118, y: 15, length: 6},
+            {startX: 130, y: 13, length: 4},
+            {startX: 140, y: 9, length: 5}
         ];
         
         platformConfigs.forEach(config => {
@@ -88,11 +97,11 @@ class AdventureEngine {
             }
         });
         
-        // Add collectibles
-        for (let i = 0; i < 15; i++) {
+        // Add collectibles - more for bigger map
+        for (let i = 0; i < 30; i++) {
             this.collectibleItems.push({
-                xPos: 100 + i * 120 + Math.random() * 50,
-                yPos: 200 + Math.random() * 200,
+                xPos: 100 + i * 150 + Math.random() * 50,
+                yPos: 200 + Math.random() * 300,
                 radius: 8,
                 gathered: false,
                 sparkle: 0
@@ -114,16 +123,25 @@ class AdventureEngine {
             lifePoints: 100,
             animationPhase: 0,
             facingRight: true,
-            invulnerableTime: 0
+            invulnerableTime: 0,
+            attackCooldown: 0,
+            isAttacking: false,
+            attackDuration: 0
         };
     }
     
     generateHostiles() {
         const enemyPositions = [
-            {x: 400, y: 500, pattern: 'patrol'},
-            {x: 800, y: 450, pattern: 'jump'},
-            {x: 1200, y: 480, pattern: 'patrol'},
-            {x: 1600, y: 420, pattern: 'jump'}
+            {x: 400, y: 500, pattern: 'patrol', type: 'ground'},
+            {x: 800, y: 450, pattern: 'jump', type: 'hopper'},
+            {x: 1200, y: 480, pattern: 'patrol', type: 'ground'},
+            {x: 1600, y: 420, pattern: 'jump', type: 'hopper'},
+            {x: 2000, y: 500, pattern: 'flying', type: 'flyer'},
+            {x: 2400, y: 450, pattern: 'patrol', type: 'tank'},
+            {x: 2800, y: 480, pattern: 'flying', type: 'flyer'},
+            {x: 3200, y: 420, pattern: 'shooter', type: 'ranged'},
+            {x: 3600, y: 500, pattern: 'patrol', type: 'ground'},
+            {x: 4000, y: 450, pattern: 'tank', type: 'tank'}
         ];
         
         enemyPositions.forEach(pos => {
@@ -132,14 +150,17 @@ class AdventureEngine {
                 yPos: pos.y,
                 velocityX: 0,
                 velocityY: 0,
-                boxWidth: 28,
-                boxHeight: 28,
+                boxWidth: pos.type === 'tank' ? 36 : 28,
+                boxHeight: pos.type === 'tank' ? 36 : 28,
                 movementPattern: pos.pattern,
+                enemyType: pos.type,
                 patrolDirection: 1,
                 patrolOrigin: pos.x,
-                patrolRange: 150,
+                patrolRange: pos.type === 'tank' ? 100 : 150,
                 animCycle: 0,
-                active: true
+                active: true,
+                health: pos.type === 'tank' ? 30 : (pos.type === 'ranged' ? 15 : 10),
+                shootCooldown: 0
             });
         });
     }
@@ -161,6 +182,9 @@ class AdventureEngine {
         // Update hero character
         this.processHeroMovement(dt);
         this.applyPhysicsToHero(dt);
+        
+        // Update projectiles
+        this.updateProjectiles(dt);
         
         // Update enemies
         this.hostileEntities.forEach(enemy => {
@@ -194,12 +218,12 @@ class AdventureEngine {
         const jumpPower = 420;
         const dashForce = 600;
         
-        // Horizontal movement
-        if (this.pressedButtons.has('ArrowLeft')) {
+        // Horizontal movement - A and D keys
+        if (this.pressedButtons.has('KeyA')) {
             hero.velocityX -= moveAccel * dt;
             hero.facingRight = false;
         }
-        if (this.pressedButtons.has('ArrowRight')) {
+        if (this.pressedButtons.has('KeyD')) {
             hero.velocityX += moveAccel * dt;
             hero.facingRight = true;
         }
@@ -210,13 +234,13 @@ class AdventureEngine {
         // Clamp speed
         hero.velocityX = Math.max(-maxHorizontalSpeed, Math.min(maxHorizontalSpeed, hero.velocityX));
         
-        // Jump mechanics
+        // Jump mechanics - Space key
         if (this.pressedButtons.has('Space') && hero.canJump) {
             hero.velocityY = -jumpPower;
             hero.canJump = false;
         }
         
-        // Dash ability
+        // Dash ability - Shift keys
         if ((this.pressedButtons.has('ShiftLeft') || this.pressedButtons.has('ShiftRight')) && hero.dashEnergy >= 50 && hero.dashCooldown <= 0) {
             const dashDir = hero.facingRight ? 1 : -1;
             hero.velocityX += dashForce * dashDir;
@@ -224,9 +248,25 @@ class AdventureEngine {
             hero.dashCooldown = 1.0;
         }
         
+        // Attack - K key (like Hollow Knight's attack button)
+        if (this.pressedButtons.has('KeyK') && hero.attackCooldown <= 0 && !hero.isAttacking) {
+            hero.isAttacking = true;
+            hero.attackDuration = 0.3; // 300ms attack animation
+            hero.attackCooldown = 0.5; // 500ms cooldown
+        }
+        
+        // Update attack state
+        if (hero.isAttacking) {
+            hero.attackDuration -= dt;
+            if (hero.attackDuration <= 0) {
+                hero.isAttacking = false;
+            }
+        }
+        
         // Regenerate dash (frame-rate independent)
         hero.dashEnergy = Math.min(100, hero.dashEnergy + 30 * dt);
         hero.dashCooldown = Math.max(0, hero.dashCooldown - dt);
+        hero.attackCooldown = Math.max(0, hero.attackCooldown - dt);
         
         // Update invulnerability
         hero.invulnerableTime = Math.max(0, hero.invulnerableTime - dt);
@@ -294,7 +334,8 @@ class AdventureEngine {
                 enemy.patrolDirection *= -1;
             }
             
-            enemy.xPos += enemy.patrolDirection * 80 * dt;
+            const speed = enemy.enemyType === 'tank' ? 50 : 80;
+            enemy.xPos += enemy.patrolDirection * speed * dt;
         } else if (enemy.movementPattern === 'jump') {
             enemy.velocityY += 800 * dt;
             enemy.yPos += enemy.velocityY * dt;
@@ -314,7 +355,74 @@ class AdventureEngine {
                     }
                 }
             });
+        } else if (enemy.movementPattern === 'flying') {
+            // Flying pattern - sine wave motion
+            const flySpeed = 100;
+            enemy.xPos += Math.sin(enemy.animCycle * 0.5) * flySpeed * dt;
+            enemy.yPos += Math.cos(enemy.animCycle * 0.3) * 50 * dt;
+        } else if (enemy.movementPattern === 'shooter') {
+            // Shooter stays in place and shoots at player
+            enemy.shootCooldown -= dt;
+            if (enemy.shootCooldown <= 0) {
+                const distToPlayer = Math.abs(this.heroEntity.xPos - enemy.xPos);
+                if (distToPlayer < 400) {
+                    this.spawnEnemyProjectile(enemy);
+                    enemy.shootCooldown = 2.0; // Shoot every 2 seconds
+                }
+            }
+        } else if (enemy.movementPattern === 'tank') {
+            // Tank moves slowly and is hard to kill
+            const distFromOrigin = enemy.xPos - enemy.patrolOrigin;
+            
+            if (Math.abs(distFromOrigin) > enemy.patrolRange) {
+                enemy.patrolDirection *= -1;
+            }
+            
+            enemy.xPos += enemy.patrolDirection * 40 * dt;
         }
+    }
+    
+    spawnEnemyProjectile(enemy) {
+        const dirX = this.heroEntity.xPos > enemy.xPos ? 1 : -1;
+        this.projectiles.push({
+            xPos: enemy.xPos + enemy.boxWidth / 2,
+            yPos: enemy.yPos + enemy.boxHeight / 2,
+            velocityX: dirX * 200,
+            velocityY: 0,
+            radius: 6,
+            fromEnemy: true,
+            active: true
+        });
+    }
+    
+    updateProjectiles(dt) {
+        this.projectiles = this.projectiles.filter(proj => {
+            if (!proj.active) return false;
+            
+            // Update position
+            proj.xPos += proj.velocityX * dt;
+            proj.yPos += proj.velocityY * dt;
+            
+            // Remove if off screen
+            if (proj.xPos < this.cameraOffsetX - 100 || 
+                proj.xPos > this.cameraOffsetX + this.displayWidth + 100 ||
+                proj.yPos > this.displayHeight + 100) {
+                return false;
+            }
+            
+            // Check collision with tiles
+            for (let tile of this.worldTiles) {
+                const tileX = tile.gridX * tile.dimensions;
+                const tileY = tile.gridY * tile.dimensions;
+                
+                if (proj.xPos > tileX && proj.xPos < tileX + tile.dimensions &&
+                    proj.yPos > tileY && proj.yPos < tileY + tile.dimensions) {
+                    return false;
+                }
+            }
+            
+            return true;
+        });
     }
     
     detectCollisions() {
@@ -332,24 +440,67 @@ class AdventureEngine {
             }
         });
         
-        // Enemy collisions
+        // Check hero attack hitting enemies
+        if (hero.isAttacking) {
+            const attackRange = 40;
+            const attackX = hero.facingRight ? hero.xPos + hero.boxWidth : hero.xPos - attackRange;
+            const attackY = hero.yPos;
+            
+            this.hostileEntities.forEach(enemy => {
+                if (enemy.active && this.checkBoxOverlap(
+                    attackX, attackY, attackRange, hero.boxHeight,
+                    enemy.xPos, enemy.yPos, enemy.boxWidth, enemy.boxHeight
+                )) {
+                    enemy.health -= 10;
+                    if (enemy.health <= 0) {
+                        enemy.active = false;
+                        this.playerPoints += enemy.enemyType === 'tank' ? 150 : (enemy.enemyType === 'ranged' ? 100 : 50);
+                    }
+                    // Knockback effect on enemy
+                    const knockbackDir = hero.facingRight ? 1 : -1;
+                    enemy.xPos += knockbackDir * 30;
+                }
+            });
+        }
+        
+        // Enemy collisions with hero
         this.hostileEntities.forEach(enemy => {
             if (enemy.active && this.checkBoxOverlap(
                 hero.xPos, hero.yPos, hero.boxWidth, hero.boxHeight,
                 enemy.xPos, enemy.yPos, enemy.boxWidth, enemy.boxHeight
             )) {
-                if (hero.velocityY > 200 && hero.yPos < enemy.yPos) {
+                if (hero.velocityY > 200 && hero.yPos < enemy.yPos && !hero.isAttacking) {
                     // Bounce on enemy
-                    enemy.active = false;
+                    enemy.health -= 15;
+                    if (enemy.health <= 0) {
+                        enemy.active = false;
+                        this.playerPoints += enemy.enemyType === 'tank' ? 150 : (enemy.enemyType === 'ranged' ? 100 : 50);
+                    }
                     hero.velocityY = -300;
-                    this.playerPoints += 50;
                 } else if (hero.invulnerableTime <= 0) {
                     // Take damage with invulnerability frames
-                    hero.lifePoints -= 10;
+                    const damage = enemy.enemyType === 'tank' ? 15 : 10;
+                    hero.lifePoints -= damage;
                     hero.invulnerableTime = 1.5; // 1.5 seconds of invulnerability
                     // Knockback
                     const knockbackDir = hero.xPos < enemy.xPos ? -1 : 1;
                     hero.velocityX = knockbackDir * 200;
+                }
+            }
+        });
+        
+        // Projectile collisions
+        this.projectiles.forEach(proj => {
+            if (!proj.active) return;
+            
+            if (proj.fromEnemy) {
+                // Enemy projectile hitting hero
+                const dist = Math.hypot(hero.xPos + hero.boxWidth/2 - proj.xPos, 
+                                       hero.yPos + hero.boxHeight/2 - proj.yPos);
+                if (dist < proj.radius + 12 && hero.invulnerableTime <= 0) {
+                    hero.lifePoints -= 5;
+                    hero.invulnerableTime = 1.5;
+                    proj.active = false;
                 }
             }
         });
@@ -399,6 +550,13 @@ class AdventureEngine {
         this.collectibleItems.forEach(item => {
             if (!item.gathered) {
                 this.drawCollectible(ctx, item);
+            }
+        });
+        
+        // Render projectiles
+        this.projectiles.forEach(proj => {
+            if (proj.active) {
+                this.drawProjectile(ctx, proj);
             }
         });
         
@@ -505,30 +663,103 @@ class AdventureEngine {
         ctx.fill();
     }
     
+    drawProjectile(ctx, proj) {
+        ctx.fillStyle = proj.fromEnemy ? '#ff6b6b' : '#4ecdc4';
+        ctx.beginPath();
+        ctx.arc(proj.xPos, proj.yPos, proj.radius, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Add glow effect
+        ctx.strokeStyle = proj.fromEnemy ? '#ff3838' : '#2ebf91';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+    }
+    
     drawHostileEntity(ctx, enemy) {
         const x = enemy.xPos;
         const y = enemy.yPos;
         const w = enemy.boxWidth;
         const h = enemy.boxHeight;
         
-        // Enemy body (pixel art style)
-        ctx.fillStyle = '#e74c3c';
-        ctx.fillRect(x + 4, y + 4, w - 8, h - 8);
+        // Different appearance based on enemy type
+        if (enemy.enemyType === 'tank') {
+            // Tank enemy - bigger and armored
+            ctx.fillStyle = '#7f8c8d';
+            ctx.fillRect(x + 2, y + 2, w - 4, h - 4);
+            
+            ctx.fillStyle = '#95a5a6';
+            ctx.fillRect(x + 6, y + 6, w - 12, h - 12);
+            
+            // Armor plates
+            ctx.fillStyle = '#5d6d7e';
+            for (let i = 0; i < 3; i++) {
+                ctx.fillRect(x + 8 + i * 8, y + 8, 6, 6);
+            }
+            
+            // Eyes
+            ctx.fillStyle = '#e74c3c';
+            ctx.fillRect(x + 10, y + h/2, 4, 4);
+            ctx.fillRect(x + w - 14, y + h/2, 4, 4);
+        } else if (enemy.enemyType === 'flyer') {
+            // Flying enemy - lighter color, wings
+            ctx.fillStyle = '#9b59b6';
+            ctx.fillRect(x + 6, y + 6, w - 12, h - 12);
+            
+            // Wings
+            const wingFlap = Math.sin(enemy.animCycle * 2) * 4;
+            ctx.fillStyle = '#8e44ad';
+            ctx.fillRect(x, y + h/2 + wingFlap, 6, 8);
+            ctx.fillRect(x + w - 6, y + h/2 - wingFlap, 6, 8);
+            
+            // Eyes
+            ctx.fillStyle = '#fff';
+            ctx.fillRect(x + 10, y + 12, 4, 4);
+            ctx.fillRect(x + w - 14, y + 12, 4, 4);
+        } else if (enemy.enemyType === 'ranged') {
+            // Ranged enemy - with projectile launcher
+            ctx.fillStyle = '#e67e22';
+            ctx.fillRect(x + 4, y + 4, w - 8, h - 8);
+            
+            // Weapon/cannon
+            ctx.fillStyle = '#d35400';
+            ctx.fillRect(x + w - 6, y + h/2 - 2, 8, 4);
+            
+            // Eyes
+            ctx.fillStyle = '#000';
+            ctx.fillRect(x + 8, y + 10, 5, 5);
+            ctx.fillRect(x + w - 13, y + 10, 5, 5);
+        } else {
+            // Default ground enemy
+            ctx.fillStyle = '#e74c3c';
+            ctx.fillRect(x + 4, y + 4, w - 8, h - 8);
+            
+            // Eyes
+            const eyeOffset = Math.sin(enemy.animCycle) * 2;
+            ctx.fillStyle = '#fff';
+            ctx.fillRect(x + 8, y + 10 + eyeOffset, 6, 6);
+            ctx.fillRect(x + w - 14, y + 10 + eyeOffset, 6, 6);
+            
+            ctx.fillStyle = '#000';
+            ctx.fillRect(x + 10, y + 12 + eyeOffset, 3, 3);
+            ctx.fillRect(x + w - 12, y + 12 + eyeOffset, 3, 3);
+            
+            // Spikes
+            ctx.fillStyle = '#c0392b';
+            for (let i = 0; i < 3; i++) {
+                ctx.fillRect(x + 6 + i * 8, y, 4, 4);
+            }
+        }
         
-        // Eyes
-        const eyeOffset = Math.sin(enemy.animCycle) * 2;
-        ctx.fillStyle = '#fff';
-        ctx.fillRect(x + 8, y + 10 + eyeOffset, 6, 6);
-        ctx.fillRect(x + w - 14, y + 10 + eyeOffset, 6, 6);
-        
-        ctx.fillStyle = '#000';
-        ctx.fillRect(x + 10, y + 12 + eyeOffset, 3, 3);
-        ctx.fillRect(x + w - 12, y + 12 + eyeOffset, 3, 3);
-        
-        // Spikes
-        ctx.fillStyle = '#c0392b';
-        for (let i = 0; i < 3; i++) {
-            ctx.fillRect(x + 6 + i * 8, y, 4, 4);
+        // Health bar for tougher enemies
+        if (enemy.enemyType === 'tank' || enemy.enemyType === 'ranged') {
+            const maxHealth = enemy.enemyType === 'tank' ? 30 : 15;
+            const healthPercent = enemy.health / maxHealth;
+            
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+            ctx.fillRect(x, y - 8, w, 4);
+            
+            ctx.fillStyle = healthPercent > 0.5 ? '#2ecc71' : (healthPercent > 0.25 ? '#f39c12' : '#e74c3c');
+            ctx.fillRect(x, y - 8, w * healthPercent, 4);
         }
     }
     
@@ -566,6 +797,41 @@ class AdventureEngine {
         ctx.fillStyle = '#2c3e50';
         ctx.fillRect(x + 8, y + h - 6, 4, 6 + Math.abs(legPhase));
         ctx.fillRect(x + w - 12, y + h - 6, 4, 6 - Math.abs(legPhase));
+        
+        // Attack animation - sword/weapon
+        if (hero.isAttacking) {
+            const attackProgress = 1 - (hero.attackDuration / 0.3);
+            const attackAngle = attackProgress * Math.PI / 2;
+            const swordLength = 20;
+            const swordX = hero.facingRight ? x + w : x;
+            const swordY = y + h/2;
+            
+            ctx.save();
+            ctx.translate(swordX, swordY);
+            if (!hero.facingRight) ctx.scale(-1, 1);
+            ctx.rotate(-Math.PI / 4 + attackAngle);
+            
+            // Sword blade
+            ctx.fillStyle = '#ecf0f1';
+            ctx.fillRect(0, -2, swordLength, 4);
+            
+            // Sword tip
+            ctx.fillStyle = '#bdc3c7';
+            ctx.beginPath();
+            ctx.moveTo(swordLength, 0);
+            ctx.lineTo(swordLength + 4, -2);
+            ctx.lineTo(swordLength + 4, 2);
+            ctx.closePath();
+            ctx.fill();
+            
+            // Attack effect
+            ctx.fillStyle = 'rgba(236, 240, 241, 0.4)';
+            ctx.beginPath();
+            ctx.arc(swordLength/2, 0, 10, 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.restore();
+        }
         
         // Reset alpha
         ctx.globalAlpha = 1.0;
@@ -620,6 +886,9 @@ class AdventureEngine {
         this.heroEntity.lifePoints = 100;
         this.heroEntity.dashEnergy = 100;
         this.heroEntity.invulnerableTime = 0;
+        this.heroEntity.attackCooldown = 0;
+        this.heroEntity.isAttacking = false;
+        this.heroEntity.attackDuration = 0;
         this.playerPoints = 0;
         this.cameraOffsetX = 0;
         this.cameraOffsetY = 0;
@@ -628,7 +897,13 @@ class AdventureEngine {
         this.collectibleItems.forEach(item => item.gathered = false);
         
         // Reset enemies
-        this.hostileEntities.forEach(enemy => enemy.active = true);
+        this.hostileEntities.forEach(enemy => {
+            enemy.active = true;
+            enemy.health = enemy.enemyType === 'tank' ? 30 : (enemy.enemyType === 'ranged' ? 15 : 10);
+        });
+        
+        // Clear projectiles
+        this.projectiles = [];
     }
 }
 
