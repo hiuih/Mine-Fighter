@@ -29,7 +29,7 @@ A unique platformer game inspired by Geometry Dash, Hollow Knight, and Terraria'
 - **Visual Feedback**: Health indicators and hit effects
 
 ### World Design
-- **Large Expanded Map**: 150+ tiles wide for extended exploration
+- **Expanded Map**: 150+ tiles wide for extended exploration
 - **Procedural Terrain**: Ground level with natural variation
 - **Multiple Platforms**: 14+ strategic platform placements for challenging jumps
 - **Collectibles**: 30 golden coins scattered throughout the level

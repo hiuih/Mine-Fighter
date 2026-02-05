@@ -905,7 +905,7 @@ class AdventureEngine {
         const dashColor = hero.dashEnergy >= 50 ? '#3498db' : '#95a5a6';
         const dashGradient = ctx.createLinearGradient(17, this.displayHeight - 78, 17, this.displayHeight - 52);
         dashGradient.addColorStop(0, dashColor);
-        dashGradient.addColorStop(1, dashColor + 'aa');
+        dashGradient.addColorStop(1, hero.dashEnergy >= 50 ? '#3498dbaa' : '#95a5a6aa');
         ctx.fillStyle = dashGradient;
         ctx.fillRect(17, this.displayHeight - 78, (hero.dashEnergy / 100) * 216, 26);
         
