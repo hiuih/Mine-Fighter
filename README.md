@@ -5,55 +5,64 @@ A unique platformer game inspired by Geometry Dash, Hollow Knight, and Terraria'
 ## Features
 
 ### Game Mechanics
-- **Smooth Movement**: Responsive controls with acceleration and deceleration
-- **Jump System**: Precise jumping mechanics with ground detection
+- **Smooth Movement**: Responsive controls with acceleration and deceleration (A/D keys)
+- **Jump System**: Precise jumping mechanics with ground detection and coyote time
 - **Dash Ability**: Special dash move with energy management and cooldown
+- **Attack System**: Attack enemies with F key to defeat them without jumping on them
 - **Physics Engine**: Custom gravity and collision detection system
 - **Camera System**: Smooth camera following with parallax backgrounds
 
 ### Visual Design
-- **Terraria-style Graphics**: Pixel art aesthetic with detailed block textures
-- **Animated Characters**: Hero with walking animation and blinking eyes
-- **Particle Effects**: Glowing collectibles with pulsing animations
-- **Parallax Background**: Layered mountains for depth
-- **Dash Trail Effects**: Visual feedback for special abilities
+- **High Resolution Graphics**: 1920x1080 resolution for crisp, detailed visuals
+- **Realistic Textures**: Enhanced block textures with gradients, shadows, and details
+- **Animated Characters**: Hero with walking animation, blinking eyes, and attack effects
+- **Particle Effects**: Glowing collectibles with pulsing animations and attack particles
+- **Parallax Background**: Layered mountains with snow caps and clouds for depth
+- **Visual Feedback**: Dash trail effects, attack slashes, and shadow rendering
 
 ### Enemies
 - **Patrol Enemies**: Move back and forth in set patterns
 - **Jumping Enemies**: Vertical movement with random variation
-- **Combat System**: Bounce on enemies to defeat them or take damage
+- **Combat System**: Attack enemies with F key or bounce on them to defeat them
+- **Health System**: Enemies have health and take multiple hits
 - **AI Behavior**: Multiple movement patterns for variety
+- **Visual Feedback**: Health indicators and hit effects
 
 ### World Design
+- **Expanded Map**: 150+ tiles wide for extended exploration
 - **Procedural Terrain**: Ground level with natural variation
-- **Floating Platforms**: Strategic platform placement for challenging jumps
-- **Collectibles**: Golden coins scattered throughout the level
+- **Multiple Platforms**: 14+ strategic platform placements for challenging jumps
+- **Collectibles**: 30 golden coins scattered throughout the level
+- **Environmental Details**: Clouds, mountains, and atmospheric effects
 - **Scoring System**: Points for collecting items and defeating enemies
 
 ## Controls
 
-- **Arrow Keys**: Move left and right
+- **A/D Keys**: Move left and right
 - **Space**: Jump
 - **Shift**: Dash (requires energy)
+- **F**: Attack enemies
 - **R**: Restart game (when game over)
 
 ## How to Play
 
 1. Open `index.html` in a modern web browser
-2. Use arrow keys to navigate platforms
-3. Jump with space and dash with shift for longer distances
-4. Collect golden coins for points
-5. Bounce on enemies to defeat them
-6. Avoid taking damage from enemies
-7. Try to get the highest score!
+2. Use A/D keys to navigate platforms
+3. Jump with Space and dash with Shift for longer distances
+4. Attack enemies with F key - enemies take 2 hits to defeat
+5. Collect golden coins for points
+6. Bounce on enemies or attack them to defeat them
+7. Avoid taking damage from enemies
+8. Try to get the highest score!
 
 ## Technical Details
 
 - **Engine**: Custom JavaScript game engine (AdventureEngine)
 - **Rendering**: HTML5 Canvas with 2D context
-- **Resolution**: 960x640 pixels
+- **Resolution**: 1920x1080 pixels (Full HD)
 - **FPS**: 60 frames per second (requestAnimationFrame)
-- **Physics**: Delta-time based physics system
+- **Physics**: Delta-time based physics system with realistic gravity
+- **Controls**: Keyboard-based with A/D/Space/F/Shift inputs
 
 ## Game Architecture
 

@@ -31,21 +31,24 @@
         }
         #gameUI {
             position: absolute;
-            top: 10px;
-            left: 10px;
+            top: 15px;
+            left: 15px;
             color: #e94560;
-            font-size: 18px;
-            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
+            font-size: 28px;
+            font-weight: bold;
+            text-shadow: 3px 3px 6px rgba(0, 0, 0, 0.9);
             z-index: 10;
         }
         #controls {
             position: absolute;
-            bottom: -80px;
+            bottom: -100px;
             left: 0;
             right: 0;
             text-align: center;
             color: #e94560;
-            font-size: 14px;
+            font-size: 20px;
+            font-weight: bold;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
         }
     </style>
 </head>
@@ -57,7 +60,7 @@
         </div>
         <canvas id="gameCanvas"></canvas>
         <div id="controls">
-            Arrow Keys: Move | Space: Jump | Shift: Dash | R: Restart
+            A/D: Move | Space: Jump | Shift: Dash | F: Attack | R: Restart
         </div>
     </div>
     <script src="game.js"></script>
