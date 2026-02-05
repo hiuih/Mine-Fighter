@@ -122,7 +122,8 @@ class AdventureEngine {
             facingRight: true,
             invulnerableTime: 0,
             attackCooldown: 0,
-            isAttacking: false
+            isAttacking: false,
+            attackAnimationTime: 0
         };
     }
     
@@ -251,7 +252,15 @@ class AdventureEngine {
             this.performAttack();
             hero.attackCooldown = 0.5;
             hero.isAttacking = true;
-            setTimeout(() => { hero.isAttacking = false; }, 200);
+            hero.attackAnimationTime = 0.2;
+        }
+        
+        // Update attack animation time
+        if (hero.attackAnimationTime > 0) {
+            hero.attackAnimationTime -= dt;
+            if (hero.attackAnimationTime <= 0) {
+                hero.isAttacking = false;
+            }
         }
         
         // Regenerate dash (frame-rate independent)
@@ -579,19 +588,25 @@ class AdventureEngine {
             ctx.fillStyle = dirtGradient;
             ctx.fillRect(x, y, s, s);
             
-            // Dirt particles and stones
+            // Dirt particles and stones - deterministic based on tile position
             ctx.fillStyle = '#4A3022';
+            const seed = tile.gridX * 7 + tile.gridY * 13;
             for (let i = 0; i < 8; i++) {
-                const dx = x + (i % 3) * (s / 3) + Math.random() * 10;
-                const dy = y + Math.floor(i / 3) * (s / 3) + Math.random() * 10;
-                ctx.fillRect(dx, dy, 8 + Math.random() * 6, 8 + Math.random() * 6);
+                const pseudoRandX = ((seed + i * 17) % 97) / 97;
+                const pseudoRandY = ((seed + i * 23) % 89) / 89;
+                const dx = x + (i % 3) * (s / 3) + pseudoRandX * 10;
+                const dy = y + Math.floor(i / 3) * (s / 3) + pseudoRandY * 10;
+                const sizeVar = ((seed + i * 31) % 6);
+                ctx.fillRect(dx, dy, 8 + sizeVar, 8 + sizeVar);
             }
             
-            // Small stones
+            // Small stones - deterministic
             ctx.fillStyle = '#8B8B8B';
             for (let i = 0; i < 3; i++) {
-                const stoneX = x + Math.random() * s;
-                const stoneY = y + Math.random() * s;
+                const pseudoRandX = ((seed + i * 41) % 100) / 100;
+                const pseudoRandY = ((seed + i * 53) % 100) / 100;
+                const stoneX = x + pseudoRandX * s;
+                const stoneY = y + pseudoRandY * s;
                 ctx.fillRect(stoneX, stoneY, 4, 4);
             }
         } else if (tile.blockType === 'platform') {
@@ -954,6 +969,7 @@ class AdventureEngine {
         this.heroEntity.invulnerableTime = 0;
         this.heroEntity.attackCooldown = 0;
         this.heroEntity.isAttacking = false;
+        this.heroEntity.attackAnimationTime = 0;
         this.playerPoints = 0;
         this.cameraOffsetX = 0;
         this.cameraOffsetY = 0;
