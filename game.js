@@ -8,12 +8,13 @@ class AdventureEngine {
             throw new Error('Canvas element with id "gameCanvas" not found');
         }
         this.brush = this.screenCanvas.getContext('2d');
-        this.displayWidth = 960;
-        this.displayHeight = 640;
-        this.screenCanvas.width = this.displayWidth;
-        this.screenCanvas.height = this.displayHeight;
         
-        // Unique game state management
+        // Fullscreen setup
+        this.resize();
+        window.addEventListener('resize', () => this.resize());
+        
+        // Game state management
+        this.gameState = 'START'; // 'START', 'PLAYING', 'GAME_OVER'
         this.heroEntity = null;
         this.worldTiles = [];
         this.hostileEntities = [];
@@ -36,9 +37,23 @@ class AdventureEngine {
         this.previousTimestamp = performance.now();
         this.runGameCycle();
     }
+
+    resize() {
+        this.displayWidth = window.innerWidth;
+        this.displayHeight = window.innerHeight;
+        this.screenCanvas.width = this.displayWidth;
+        this.screenCanvas.height = this.displayHeight;
+    }
     
     setupInputHandlers() {
         window.addEventListener('keydown', (evt) => {
+            if (this.gameState === 'START' && evt.code === 'Enter') {
+                this.gameState = 'PLAYING';
+            }
+            if (this.gameState === 'GAME_OVER' && evt.code === 'KeyR') {
+                this.resetGameState();
+                this.gameState = 'PLAYING';
+            }
             this.pressedButtons.add(evt.code);
             if (evt.code === 'Space') evt.preventDefault();
         });
@@ -156,6 +171,8 @@ class AdventureEngine {
     }
     
     updateGameLogic(dt) {
+        if (this.gameState !== 'PLAYING') return;
+
         this.currentTick++;
         
         // Update hero character
@@ -176,14 +193,14 @@ class AdventureEngine {
         this.updateCameraPosition();
         
         // Update UI
-        document.getElementById('scoreDisplay').textContent = this.playerPoints;
-        document.getElementById('healthDisplay').textContent = this.heroEntity.lifePoints;
+        const scoreDisp = document.getElementById('scoreDisplay');
+        const healthDisp = document.getElementById('healthDisplay');
+        if (scoreDisp) scoreDisp.textContent = this.playerPoints;
+        if (healthDisp) healthDisp.textContent = this.heroEntity.lifePoints;
         
         // Reset game if hero dies
-        if (this.heroEntity.lifePoints <= 0 || this.heroEntity.yPos > this.displayHeight + 100) {
-            if (this.pressedButtons.has('KeyR')) {
-                this.resetGameState();
-            }
+        if (this.heroEntity.lifePoints <= 0 || this.heroEntity.yPos > this.displayHeight + 500) {
+            this.gameState = 'GAME_OVER';
         }
     }
     
@@ -368,14 +385,19 @@ class AdventureEngine {
         this.cameraOffsetX += (targetX - this.cameraOffsetX) * 0.1;
         this.cameraOffsetY += (targetY - this.cameraOffsetY) * 0.05;
         
-        // Clamp camera
+        // Clamp camera (Adjusted for fullscreen)
         this.cameraOffsetX = Math.max(0, this.cameraOffsetX);
-        this.cameraOffsetY = Math.max(-100, Math.min(200, this.cameraOffsetY));
+        this.cameraOffsetY = Math.max(-500, Math.min(500, this.cameraOffsetY));
     }
     
     renderGameScene() {
         const ctx = this.brush;
         
+        if (this.gameState === 'START') {
+            this.drawStartMenu(ctx);
+            return;
+        }
+
         // Clear screen with sky gradient
         const skyGradient = ctx.createLinearGradient(0, 0, 0, this.displayHeight);
         skyGradient.addColorStop(0, '#2c3e50');
@@ -416,6 +438,27 @@ class AdventureEngine {
         
         // Render UI elements
         this.drawGameUI(ctx);
+    }
+
+    drawStartMenu(ctx) {
+        // Background
+        ctx.fillStyle = '#1a1a2e';
+        ctx.fillRect(0, 0, this.displayWidth, this.displayHeight);
+
+        // Title
+        ctx.fillStyle = '#e94560';
+        ctx.font = 'bold 48px "Courier New", monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText('PIXEL REALM ADVENTURES', this.displayWidth / 2, this.displayHeight / 2 - 40);
+
+        // Instructions
+        ctx.fillStyle = '#fff';
+        ctx.font = '20px "Courier New", monospace';
+        ctx.fillText('Press ENTER to Start', this.displayWidth / 2, this.displayHeight / 2 + 40);
+        
+        ctx.font = '16px "Courier New", monospace';
+        ctx.fillStyle = '#95a5a6';
+        ctx.fillText('Arrows: Move | Space: Jump | Shift: Dash', this.displayWidth / 2, this.displayHeight / 2 + 80);
     }
     
     drawParallaxBackground(ctx) {
@@ -585,18 +628,19 @@ class AdventureEngine {
         
         // Dash energy bar
         ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
-        ctx.fillRect(10, this.displayHeight - 40, 150, 20);
+        ctx.fillRect(20, 70, 150, 20);
         
         const dashColor = hero.dashEnergy >= 50 ? '#3498db' : '#95a5a6';
         ctx.fillStyle = dashColor;
-        ctx.fillRect(12, this.displayHeight - 38, (hero.dashEnergy / 100) * 146, 16);
+        ctx.fillRect(22, 72, (hero.dashEnergy / 100) * 146, 16);
         
         ctx.fillStyle = '#fff';
         ctx.font = '12px monospace';
-        ctx.fillText('DASH', 170, this.displayHeight - 25);
+        ctx.textAlign = 'left';
+        ctx.fillText('DASH', 180, 85);
         
         // Game over message
-        if (hero.lifePoints <= 0) {
+        if (this.gameState === 'GAME_OVER') {
             ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
             ctx.fillRect(0, this.displayHeight / 2 - 50, this.displayWidth, 100);
             
@@ -608,7 +652,6 @@ class AdventureEngine {
             ctx.font = '18px monospace';
             ctx.fillStyle = '#fff';
             ctx.fillText('Press R to Restart', this.displayWidth / 2, this.displayHeight / 2 + 30);
-            ctx.textAlign = 'left';
         }
     }
     
